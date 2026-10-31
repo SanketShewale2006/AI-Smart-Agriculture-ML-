@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Crop Recommendation</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">AI SMART AGRICULTURE</p>
+      <h1>Crop recommendation</h1>
+      <p class="intro">Enter soil nutrients and local climate measurements to get a model-based crop suggestion.</p>
+    </header>
+    <form id="crop-form">
+      <section class="grid">
+        <label>Nitrogen (N)<input name="N" type="number" min="0" max="300" step="any" value="90" required></label>
+        <label>Phosphorus (P)<input name="P" type="number" min="0" max="300" step="any" value="42" required></label>
+        <label>Potassium (K)<input name="K" type="number" min="0" max="300" step="any" value="43" required></label>
+        <label>Temperature (°C)<input name="temperature" type="number" min="-10" max="60" step="any" value="24.5" required></label>
+        <label>Humidity (%)<input name="humidity" type="number" min="0" max="100" step="any" value="80" required></label>
+        <label>Soil pH<input name="ph" type="number" min="0" max="14" step="any" value="6.5" required></label>
+        <label>Rainfall (mm)<input name="rainfall" type="number" min="0" max="5000" step="any" value="200" required></label>
+      </section>
+      <button type="submit">Recommend a crop</button>
+    </form>
+    <section id="result" class="result" aria-live="polite"></section>
+    <p class="disclaimer">Educational prototype. The included synthetic demo data is not suitable for real farming decisions.</p>
+  </main>
+  <script>
+    const form = document.querySelector("#crop-form");
+    const result = document.querySelector("#result");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      for (const key in data) data[key] = Number(data[key]);
+      result.textContent = "Analyzing…";
+      try {
+        const response = await fetch("/api/predict", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(data)
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "Prediction failed");
+        result.replaceChildren();
+        const title = document.createElement("h2");
+        title.textContent = `Suggested crop: ${body.recommended_crop}`;
+        const confidence = document.createElement("p");
+        confidence.textContent = `Model score: ${(body.confidence * 100).toFixed(1)}%`;
+        const list = document.createElement("ul");
+        body.top_recommendations.forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = `${item.crop}: ${(item.probability * 100).toFixed(1)}%`;
+          list.appendChild(li);
+        });
+        result.append(title, confidence, list);
+      } catch (error) {
+        result.textContent = error.message;
+      }
+    });
+  </script>
+</body>
+</html>
